@@ -9,23 +9,29 @@ const User = require('./models/user');
 // Passport Strategy configuration
 passport.use(
   'sign-up',
-  new passportLocal.Strategy({}, (username, password, callback) => {
-    bcryptjs
-      .hash(password, 10)
-      .then(hash => {
-        return User.create({
-          username,
-          passwordHash: hash
+  new passportLocal.Strategy(
+    { passReqToCallback: true },
+    (req, username, password, callback) => {
+      console.log(req.body);
+      const role = req.body.role;
+      bcryptjs
+        .hash(password, 10)
+        .then(hash => {
+          return User.create({
+            username,
+            role,
+            passwordHash: hash
+          });
+        })
+        .then(user => {
+          callback(null, user);
+        })
+        .catch(error => {
+          console.log(error);
+          callback(error);
         });
-      })
-      .then(user => {
-        callback(null, user);
-      })
-      .catch(error => {
-        console.log(error);
-        callback(error);
-      });
-  })
+    }
+  )
 );
 
 passport.use(
@@ -51,6 +57,7 @@ passport.use(
         }
       })
       .catch(error => {
+        console.log(error);
         callback(error);
       });
   })
