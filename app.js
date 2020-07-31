@@ -1,4 +1,6 @@
 'use strict';
+const dotenv = require('dotenv');
+dotenv.config();
 
 const { join } = require('path');
 const express = require('express');
@@ -6,9 +8,16 @@ const createError = require('http-errors');
 const logger = require('morgan');
 const sassMiddleware = require('node-sass-middleware');
 const serveFavicon = require('serve-favicon');
+const session = require('express-session');
+const mongoose = require('mongoose');
+const mongoStore = require('connect-mongo')(session);
+const passport = require('passport');
+const bindUserToViewLocals = require('./middleware/bind-user-to-view-locals');
 
 const indexRouter = require('./routes/index');
 const authenticationRouter = require('./routes/authentication');
+
+require('./configure-passport.js');
 
 const app = express();
 
@@ -22,7 +31,8 @@ app.use(
   sassMiddleware({
     src: join(__dirname, 'public'),
     dest: join(__dirname, 'public'),
-    outputStyle: process.env.NODE_ENV === 'development' ? 'nested' : 'compressed',
+    outputStyle:
+      process.env.NODE_ENV === 'development' ? 'nested' : 'compressed',
     force: process.env.NODE_ENV === 'development',
     sourceMap: false
   })
@@ -30,6 +40,23 @@ app.use(
 app.use(serveFavicon(join(__dirname, 'public/images', 'favicon.ico')));
 app.use(express.static(join(__dirname, 'public')));
 
+app.use(
+  session({
+    secret: process.env.COOKIE_SECRET,
+    resave: true,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 15 * 24 * 60 * 60 * 1000
+    },
+    store: new mongoStore({
+      mongooseConnection: mongoose.connection,
+      ttl: 60 * 60
+    })
+  })
+);
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(bindUserToViewLocals);
 app.use('/', indexRouter);
 app.use('/authentication', authenticationRouter);
 
